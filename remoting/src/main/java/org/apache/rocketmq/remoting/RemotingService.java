@@ -22,5 +22,12 @@ public interface RemotingService {
 
     void shutdown();
 
+
+    /**
+     * RPCHook 提供两个方法。
+     * 1. 消息发送前处理
+     * 2. 消息响应后处理
+     * @param rpcHook
+     */
     void registerRPCHook(RPCHook rpcHook);
 }
