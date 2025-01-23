@@ -334,6 +334,15 @@ public class DefaultRequestProcessor implements NettyRequestProcessor {
         return response;
     }
 
+    /**
+     * namesrv路由发现实现方法
+     * 获取topic 对应的路由信息
+     * 找到状态码就是success ， 没有找到就是TOPIC_NOT_EXISTS
+     * @param ctx
+     * @param request
+     * @return
+     * @throws RemotingCommandException
+     */
     public RemotingCommand getRouteInfoByTopic(ChannelHandlerContext ctx,
         RemotingCommand request) throws RemotingCommandException {
         final RemotingCommand response = RemotingCommand.createResponseCommand(null);

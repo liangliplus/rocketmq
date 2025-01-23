@@ -45,14 +45,51 @@ import org.apache.rocketmq.common.protocol.route.TopicRouteData;
 import org.apache.rocketmq.common.sysflag.TopicSysFlag;
 import org.apache.rocketmq.remoting.common.RemotingUtil;
 
+/**
+ * 路由实现类
+ * rocketmq 基发布订阅机制，一个broker 默认为每一主题创建4个读队列 和 4个写队列
+ * 多个broker 组成一个集群
+ *
+ * "路由注册" 是通过broker 与 namesrv 心跳功能实现的。
+ * broker启动时向集群中所有nameserver 发送心跳语句，每个30s向集群所有nameserv 发送心跳包
+ * namesrv 收到broker 心跳包，会先更新brokerLiveTable 中brokerLiveInfo 的lastUpdateTimestamp
+ * 每个10s 扫描一次brokerLiveTable 如果超过120s 没有收到心跳包，namesrv 将会移除该broker 路由信息，同时关闭socket链接
+ *
+ * "路由删除"
+ *
+ * ”路由发现 “： RocketMq 的路由发现是非实时的，当topic 路由出现变化后，
+ * nameserver 不主动推送给客户端，而是由客户端定时拉取最新路由信息。
+ *
+ */
 public class RouteInfoManager {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.NAMESRV_LOGGER_NAME);
     private final static long BROKER_CHANNEL_EXPIRED_TIME = 1000 * 60 * 2;
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
+    /**
+     * topic 消息队列路由信息，消息发送时根据路由表进行负载均衡（生产者和消费者都会用到）
+     * BrokerData 包含broker名称，读队列数量，写队列数量
+     */
     private final HashMap<String/* topic */, List<QueueData>> topicQueueTable;
+    /**
+     * broker 基础信息，包含brokerName，所属集群名称，主备broker 地址
+     * 例如两个broker 主节点 broker-a 和 broker-b
+     * 两个从节点 broker-a和 broker-b （注意主从的brokerName是一致的,只是broker-id不一致，broker-id = 0 为主节点，非0表示从节点）
+     * BrokerData 包含broker 名称， brokerId（大于0为从） 和地址
+     */
     private final HashMap<String/* brokerName */, BrokerData> brokerAddrTable;
+    /**
+     * broker 集群信息，存储集群中所有broker名称
+     * 部署两个主broker时候， clusterName 是一致的，都是DefaultCluster
+     */
     private final HashMap<String/* clusterName */, Set<String/* brokerName */>> clusterAddrTable;
+    /**
+     * broker 状态信息，nameserver每次收到心跳包会替换该信息
+     * brokerLiveTable 是执行删除的重要依据
+     */
     private final HashMap<String/* brokerAddr */, BrokerLiveInfo> brokerLiveTable;
+    /**
+     * broker 上filterServer列表 ？？
+     */
     private final HashMap<String/* brokerAddr */, List<String>/* Filter Server */> filterServerTable;
 
     public RouteInfoManager() {
@@ -99,6 +136,24 @@ public class RouteInfoManager {
         return topicList.encode();
     }
 
+    /**
+     * 处理心跳包
+     * NameSrv 和 broker 保持长连接， Broker状态信息存储在brokerLiveTable中。
+     * NameSrv 每收到一个心跳包，将会更新brokerLiveTable 中关于broker状态信息(brokerLiveTable)以及
+     * 路由表（topicQueueTable,brokerAddrTable）
+     * 读写锁设计：
+     * 使用锁粒度较少的读写锁。 只允许一个线程写topic 信息。
+     * 但是允许多个线程同时读，保证消息发送时候的高并发
+     * @param clusterName
+     * @param brokerAddr
+     * @param brokerName
+     * @param brokerId
+     * @param haServerAddr
+     * @param topicConfigWrapper
+     * @param filterServerList
+     * @param channel
+     * @return
+     */
     public RegisterBrokerResult registerBroker(
         final String clusterName,
         final String brokerAddr,
@@ -113,6 +168,7 @@ public class RouteInfoManager {
             try {
                 this.lock.writeLock().lockInterruptibly();
 
+                //clusterAddrTable 维护
                 Set<String> brokerNames = this.clusterAddrTable.get(clusterName);
                 if (null == brokerNames) {
                     brokerNames = new HashSet<String>();
@@ -122,6 +178,7 @@ public class RouteInfoManager {
 
                 boolean registerFirst = false;
 
+                //brokerAddrTable 维护
                 BrokerData brokerData = this.brokerAddrTable.get(brokerName);
                 if (null == brokerData) {
                     registerFirst = true;
@@ -129,6 +186,7 @@ public class RouteInfoManager {
                     this.brokerAddrTable.put(brokerName, brokerData);
                 }
                 Map<Long, String> brokerAddrsMap = brokerData.getBrokerAddrs();
+                //这里是为了支持主备切换。
                 //Switch slave to master: first remove <1, IP:PORT> in namesrv, then add <0, IP:PORT>
                 //The same IP:PORT must only have one record in brokerAddrTable
                 Iterator<Entry<Long, String>> it = brokerAddrsMap.entrySet().iterator();
@@ -142,6 +200,7 @@ public class RouteInfoManager {
                 String oldAddr = brokerData.getBrokerAddrs().put(brokerId, brokerAddr);
                 registerFirst = registerFirst || (null == oldAddr);
 
+                //如果broker为主节点并且broker topic 配置信息发生变化或者初次注册，则需要创建或者更新topic路由元数据
                 if (null != topicConfigWrapper
                     && MixAll.MASTER_ID == brokerId) {
                     if (this.isBrokerTopicConfigChanged(brokerAddr, topicConfigWrapper.getDataVersion())
@@ -156,6 +215,7 @@ public class RouteInfoManager {
                     }
                 }
 
+                //把当前broker 保存到broker存储map中
                 BrokerLiveInfo prevBrokerLiveInfo = this.brokerLiveTable.put(brokerAddr,
                     new BrokerLiveInfo(
                         System.currentTimeMillis(),
@@ -375,6 +435,7 @@ public class RouteInfoManager {
         TopicRouteData topicRouteData = new TopicRouteData();
         boolean foundQueueData = false;
         boolean foundBrokerData = false;
+        //保存该topic 对应的brokerName
         Set<String> brokerNameSet = new HashSet<String>();
         List<BrokerData> brokerDataList = new LinkedList<BrokerData>();
         topicRouteData.setBrokerDatas(brokerDataList);
@@ -385,6 +446,7 @@ public class RouteInfoManager {
         try {
             try {
                 this.lock.readLock().lockInterruptibly();
+                //获取topic 队列信息
                 List<QueueData> queueDataList = this.topicQueueTable.get(topic);
                 if (queueDataList != null) {
                     topicRouteData.setQueueDatas(queueDataList);
@@ -426,6 +488,11 @@ public class RouteInfoManager {
         return null;
     }
 
+    /**
+     * 路由删除触发点1：
+     * 当namesrv 上一次心跳包距离现在超过120s，则会删除失效broker的topic 路由
+     * 遍历brokerLiveTable 如果上一个心跳包时间 + 120s 小于当前时间，则namesrv 断开与该broker链接，并且移除相关topic 路由
+     */
     public void scanNotActiveBroker() {
         Iterator<Entry<String, BrokerLiveInfo>> it = this.brokerLiveTable.entrySet().iterator();
         while (it.hasNext()) {
@@ -440,6 +507,12 @@ public class RouteInfoManager {
         }
     }
 
+    /**
+     * 触发点2 - 当broker 正常下线，会发送unregisterbroker 消息
+     * 清理brokerLiveTable,brokerAddrTable,cluster
+     * @param remoteAddr
+     * @param channel
+     */
     public void onChannelDestroy(String remoteAddr, Channel channel) {
         String brokerAddrFound = null;
         if (channel != null) {
@@ -476,10 +549,14 @@ public class RouteInfoManager {
                     this.lock.writeLock().lockInterruptibly();
                     this.brokerLiveTable.remove(brokerAddrFound);
                     this.filterServerTable.remove(brokerAddrFound);
+                    //移除broker 是否在brokerAddr中存在，存在则clusterAddrTable 中需要移除
                     String brokerNameFound = null;
+                    //表示是否还有该broker的信息（如果移除该节点后该brokerName下没有任何节点，则topicQueue相关信息也需要移除）
                     boolean removeBrokerName = false;
                     Iterator<Entry<String, BrokerData>> itBrokerAddrTable =
                         this.brokerAddrTable.entrySet().iterator();
+                    //1.1遍历brokerAddrTable，根据移除地址在BorkerAddrs 中查找并移除
+                    //1.2 如果brokerAddrs 移除后是空，则在brokerAddrTable 也可以移除（这种情况只有一个主节点）
                     while (itBrokerAddrTable.hasNext() && (null == brokerNameFound)) {
                         BrokerData brokerData = itBrokerAddrTable.next().getValue();
 

@@ -30,6 +30,8 @@ public class NettyServerConfig implements Cloneable {
     private boolean serverPooledByteBufAllocatorEnable = true;
 
     /**
+     * 生产linux 环境建议打开 epoll
+     * 默认为false
      * make make install
      *
      *

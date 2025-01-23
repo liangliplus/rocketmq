@@ -16,6 +16,9 @@
  */
 package org.apache.rocketmq.client.hook;
 
+/**
+ * 钩子核心方法 在消息发送前和发送后的增强
+ */
 public interface SendMessageHook {
     String hookName();
 

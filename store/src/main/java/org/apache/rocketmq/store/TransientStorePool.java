@@ -45,6 +45,8 @@ public class TransientStorePool {
 
     /**
      * It's a heavy init method.
+     * 创建数量poolSize 堆外内存，每个堆外内存大小为fileSize
+     * 并使用Library 锁定该批内存，避免被置换到交换区，以便提高存储性能
      */
     public void init() {
         for (int i = 0; i < poolSize; i++) {

@@ -162,6 +162,7 @@ public class ScheduleMessageService extends ConfigManager {
     }
 
     public boolean load() {
+        //延迟消息目录为存储根目录 + config + delayOffset.json
         boolean result = super.load();
         result = result && this.parseDelayLevel();
         return result;

@@ -22,10 +22,19 @@ import org.apache.rocketmq.client.log.ClientLogger;
 import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.common.message.MessageQueue;
 
+/**
+ * 消息失败策略
+ */
 public class MQFaultStrategy {
     private final static InternalLogger log = ClientLogger.getLog();
     private final LatencyFaultTolerance<String> latencyFaultTolerance = new LatencyFaultToleranceImpl();
-
+    /**
+     * 开启与不开启该参数区别：
+     * sendLatencyFaultEnable  设置为true ，可以悲观的认为broker 不可用，在接下来一段时间内就不再向其发送消息，直接避开
+     * sendLatencyFaultEnable  设置为false 只是针对本次发送消息，下一次还是会继续尝试
+     *
+     * 对于生产，建议是开启
+     */
     private boolean sendLatencyFaultEnable = false;
 
     private long[] latencyMax = {50L, 100L, 550L, 1000L, 2000L, 3000L, 15000L};
@@ -56,6 +65,7 @@ public class MQFaultStrategy {
     }
 
     public MessageQueue selectOneMessageQueue(final TopicPublishInfo tpInfo, final String lastBrokerName) {
+        //sendLatencyFaultEnable 是一个成员变量，在项目启动的时候可以指定，默认为false
         if (this.sendLatencyFaultEnable) {
             try {
                 int index = tpInfo.getSendWhichQueue().getAndIncrement();
@@ -64,7 +74,9 @@ public class MQFaultStrategy {
                     if (pos < 0)
                         pos = 0;
                     MessageQueue mq = tpInfo.getMessageQueueList().get(pos);
-                    if (latencyFaultTolerance.isAvailable(mq.getBrokerName())) {
+
+                    //验证该消息队列是否可用 （如何验证，就是faultItemTable 错误项中的 isAvailable 是否返回true，返回true 表示该broker 恢复了）
+                    if (latencyFaultTolerance.isAvailable(mq.getBrokerName())) { //消息队列可用则直接返回消息队列
                         if (null == lastBrokerName || mq.getBrokerName().equals(lastBrokerName))
                             return mq;
                     }
@@ -94,6 +106,7 @@ public class MQFaultStrategy {
 
     public void updateFaultItem(final String brokerName, final long currentLatency, boolean isolation) {
         if (this.sendLatencyFaultEnable) {
+            //30s 来计算broker 故障规避时长
             long duration = computeNotAvailableDuration(isolation ? 30000 : currentLatency);
             this.latencyFaultTolerance.updateFaultItem(brokerName, currentLatency, duration);
         }

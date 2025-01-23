@@ -70,8 +70,10 @@ public class MessageExt extends Message {
         InetSocketAddress inetSocketAddress = (InetSocketAddress) socketAddress;
         InetAddress address = inetSocketAddress.getAddress();
         if (address instanceof Inet4Address) {
+            //ipv4 使用4个字节
             byteBuffer.put(inetSocketAddress.getAddress().getAddress(), 0, 4);
         } else {
+            //ipv6 16个字节
             byteBuffer.put(inetSocketAddress.getAddress().getAddress(), 0, 16);
         }
         byteBuffer.putInt(inetSocketAddress.getPort());

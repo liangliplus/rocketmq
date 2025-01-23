@@ -852,7 +852,7 @@ public class BrokerController {
         if (this.messageStore != null) {
             this.messageStore.start();
         }
-
+        //remoteingServer 没有启动时候无法接受远程请求
         if (this.remotingServer != null) {
             this.remotingServer.start();
         }
@@ -886,7 +886,7 @@ public class BrokerController {
             handleSlaveSynchronize(messageStoreConfig.getBrokerRole());
             this.registerBrokerAll(true, false, true);
         }
-
+        //broker 发送心跳包
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
 
             @Override
@@ -952,6 +952,12 @@ public class BrokerController {
         }
     }
 
+    /**
+     * 调用brokerOuterAPI#registerBrokerAll 向所有namesrv 注册路由信息
+     * @param checkOrderConfig
+     * @param oneway
+     * @param topicConfigWrapper
+     */
     private void doRegisterBrokerAll(boolean checkOrderConfig, boolean oneway,
         TopicConfigSerializeWrapper topicConfigWrapper) {
         List<RegisterBrokerResult> registerBrokerResultList = this.brokerOuterAPI.registerBrokerAll(

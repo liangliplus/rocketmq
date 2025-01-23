@@ -33,6 +33,12 @@ public class NettyDecoder extends LengthFieldBasedFrameDecoder {
         Integer.parseInt(System.getProperty("com.rocketmq.remoting.frameMaxLength", "16777216"));
 
     public NettyDecoder() {
+        /**
+         * 因为rocketmq 使用4个字节来表示消息总长度，当收到一个完整的包为 4个字节 + 实际的消息包，在解码的时候需要丢弃标记总长度的4个字节
+         * 数据帧的总长度表示 LengthFieldBasedFrameDecoder 只有当字节累计到指定的总长度后才调用decode 方法进行解码
+         * 解码不需要前4个字节，会跳过4个字节后，在返回数据帧
+         *
+         */
         super(FRAME_MAX_LENGTH, 0, 4, 0, 4);
     }
 

@@ -48,6 +48,13 @@ public class AllocateMappedFileService extends ServiceThread {
         this.messageStore = messageStore;
     }
 
+    /**
+     *
+     * @param nextFilePath 文件路径
+     * @param nextNextFilePath
+     * @param fileSize 文件大小 默认1G
+     * @return
+     */
     public MappedFile putRequestAndReturnMappedFile(String nextFilePath, String nextNextFilePath, int fileSize) {
         int canSubmitRequests = 2;
         if (this.messageStore.getMessageStoreConfig().isTransientStorePoolEnable()) {
@@ -141,7 +148,7 @@ public class AllocateMappedFileService extends ServiceThread {
     }
 
     /**
-     * Only interrupted by the external thread, will return false
+     * 只有被外部中断，才会返回false
      */
     private boolean mmapOperation() {
         boolean isSuccess = false;
@@ -160,10 +167,12 @@ public class AllocateMappedFileService extends ServiceThread {
                 return true;
             }
 
+            //开始创建MappedFile
             if (req.getMappedFile() == null) {
                 long beginTime = System.currentTimeMillis();
 
                 MappedFile mappedFile;
+                //当TransientStorePoolEnable 开关打开会使用 TransientStorePool 堆外内存先存储
                 if (messageStore.getMessageStoreConfig().isTransientStorePoolEnable()) {
                     try {
                         mappedFile = ServiceLoader.load(MappedFile.class).iterator().next();

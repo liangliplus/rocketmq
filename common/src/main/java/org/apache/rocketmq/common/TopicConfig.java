@@ -18,16 +18,29 @@ package org.apache.rocketmq.common;
 
 import org.apache.rocketmq.common.constant.PermName;
 
+
 public class TopicConfig {
     private static final String SEPARATOR = " ";
     public static int defaultReadQueueNums = 16;
     public static int defaultWriteQueueNums = 16;
     private String topicName;
+    /**
+     * 读队列数量，默认16
+     */
     private int readQueueNums = defaultReadQueueNums;
+    /**
+     * 写队列数量，默认16
+     */
     private int writeQueueNums = defaultWriteQueueNums;
+    /**
+     * 权限码，默认可读可写
+     */
     private int perm = PermName.PERM_READ | PermName.PERM_WRITE;
     private TopicFilterType topicFilterType = TopicFilterType.SINGLE_TAG;
     private int topicSysFlag = 0;
+    /**
+     * 是否顺序消息
+     */
     private boolean order = false;
 
     public TopicConfig() {

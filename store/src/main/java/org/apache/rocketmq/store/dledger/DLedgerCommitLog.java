@@ -704,7 +704,9 @@ public class DLedgerCommitLog extends CommitLog {
                 this.msgStoreItemMemory.put(propertiesData);
             }
             byte[] data = new byte[msgLen];
+            //调用clear 目的是为了下一次方便写数据
             this.msgStoreItemMemory.clear();
+            //通过get操作把数据放入到data 数组中去
             this.msgStoreItemMemory.get(data);
             return new EncodeResult(AppendMessageStatus.PUT_OK, data, key);
         }

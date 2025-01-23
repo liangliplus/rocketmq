@@ -88,6 +88,7 @@ public class NamesrvStartup {
                 InputStream in = new BufferedInputStream(new FileInputStream(file));
                 properties = new Properties();
                 properties.load(in);
+                //如果设置了配置文件，则配置文件中属性会被设置到 namesrvConfig 对象中
                 MixAll.properties2Object(properties, namesrvConfig);
                 MixAll.properties2Object(properties, nettyServerConfig);
 
@@ -105,6 +106,10 @@ public class NamesrvStartup {
             System.exit(0);
         }
 
+        /**
+         * namesrvconfig也可以使用 --属性名 属性值方式
+         * 例如 --listenPort 9876
+         */
         MixAll.properties2Object(ServerUtil.commandLine2Properties(commandLine), namesrvConfig);
 
         if (null == namesrvConfig.getRocketmqHome()) {
@@ -131,6 +136,15 @@ public class NamesrvStartup {
         return controller;
     }
 
+    /**
+     * 第一步 initialize 加载kv 配置，先创建NettyServer 网络处理对象，然后开启两个定时任务
+     * 第二步 注册jvm 狗子函数并启动服务器，监听生产者broker，生产者和消费者的网络请求
+     *
+     * 一般如果项目使用了线程池，优雅停机的方式注册一个jvm 钩子函数，在jvm 进程关闭之前，先将线程池关闭，及时释放资源
+     * @param controller
+     * @return
+     * @throws Exception
+     */
     public static NamesrvController start(final NamesrvController controller) throws Exception {
 
         if (null == controller) {

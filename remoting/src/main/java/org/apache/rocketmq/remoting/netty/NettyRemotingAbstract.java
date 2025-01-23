@@ -75,8 +75,7 @@ public abstract class NettyRemotingAbstract {
         new ConcurrentHashMap<Integer, ResponseFuture>(256);
 
     /**
-     * This container holds all processors per request code, aka, for each incoming request, we may look up the
-     * responding processor in this map to handle the request.
+     * 包含requestcode 与具体处理类，处理类都是NettyRequestProcessor 的实现类
      */
     protected final HashMap<Integer/* request code */, Pair<NettyRequestProcessor, ExecutorService>> processorTable =
         new HashMap<Integer, Pair<NettyRequestProcessor, ExecutorService>>(64);
@@ -396,6 +395,22 @@ public abstract class NettyRemotingAbstract {
         }
     }
 
+    /**
+     * 发送消息，创建一个ResponseFuture，并把发送请求记录到 responseTable
+     * 如果发送成功则设置 ResponseFuture 发送状态为ok，当服务端返回结果后，根据opaque从responseTable
+     * 取到 ResponseFuture，调用putResponse方法设置相应结果，并调用countdown方法唤醒阻塞的线程。
+     *
+     * 如果超过指定时间没有响应，则返回超时 默认发送超时时间为3s
+     *
+     *
+     * @param channel
+     * @param request
+     * @param timeoutMillis
+     * @return
+     * @throws InterruptedException
+     * @throws RemotingSendRequestException
+     * @throws RemotingTimeoutException
+     */
     public RemotingCommand invokeSyncImpl(final Channel channel, final RemotingCommand request,
         final long timeoutMillis)
         throws InterruptedException, RemotingSendRequestException, RemotingTimeoutException {
@@ -423,6 +438,7 @@ public abstract class NettyRemotingAbstract {
             });
 
             RemotingCommand responseCommand = responseFuture.waitResponse(timeoutMillis);
+            //对于业务而言，发送超时是需要记录下来RemotingTimeoutException （表示消息发送给broker了 ）,而对于RemotingSendRequestException 表示消息还没有发送出去
             if (null == responseCommand) {
                 if (responseFuture.isSendRequestOK()) {
                     throw new RemotingTimeoutException(RemotingHelper.parseSocketAddressAddr(addr), timeoutMillis,

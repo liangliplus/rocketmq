@@ -20,6 +20,10 @@ import java.io.File;
 import org.apache.rocketmq.common.annotation.ImportantField;
 import org.apache.rocketmq.store.ConsumeQueue;
 
+/**
+ * 所有可配置字段。
+ * {@link ImportantField} 标记该注解的都是重要字段
+ */
 public class MessageStoreConfig {
     //The root directory in which the log data is kept
     @ImportantField
@@ -58,7 +62,7 @@ public class MessageStoreConfig {
      */
     private boolean useReentrantLockWhenPutMessage = false;
 
-    // Whether schedule flush,default is real-time
+    // 是否定时刷盘，默认实时
     @ImportantField
     private boolean flushCommitLogTimed = false;
     // ConsumeQueue flush interval
@@ -76,6 +80,11 @@ public class MessageStoreConfig {
     private String deleteWhen = "04";
     private int diskMaxUsedSpaceRatio = 75;
     // The number of hours to keep a log file before deleting it (in hours)
+    /**
+     * 在删除日志文件之前保留日志文件的小时数（小时为单位），commitLog 时间大于72小时就会被清理掉。
+     * (默认只保存3天，线上尽量保存时间长一点，对于消费时间长、消息堆积、故障恢复等场景非常关键)
+     * 什么时候清理见 {@link  this#deleteWhen}
+     */
     @ImportantField
     private int fileReservedTime = 72;
     // Flow control for ConsumeQueue

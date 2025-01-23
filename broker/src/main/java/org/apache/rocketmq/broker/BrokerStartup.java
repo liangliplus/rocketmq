@@ -54,6 +54,12 @@ public class BrokerStartup {
     public static String configFile = null;
     public static InternalLogger log;
 
+    /**
+     * 1.createBrokerController 创建一个BrokerController，完成对broker 相关组件的初始化。
+     * 2.然后调用BrokerController start 方法，启动相关组件 并注册jvm 钩子函数（当应用关闭时候，对组件进行优雅停止 ）
+     *
+     * @param args
+     */
     public static void main(String[] args) {
         start(createBrokerController(args));
     }
@@ -218,7 +224,7 @@ public class BrokerStartup {
                 messageStoreConfig);
             // remember all configs to prevent discard
             controller.getConfiguration().registerConfig(properties);
-
+            //完成初始化（包含对存储系统初始化）
             boolean initResult = controller.initialize();
             if (!initResult) {
                 controller.shutdown();

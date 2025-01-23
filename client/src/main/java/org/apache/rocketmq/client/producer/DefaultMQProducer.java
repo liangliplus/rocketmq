@@ -72,7 +72,7 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
     private String producerGroup;
 
     /**
-     * Just for testing or demo program
+     * 默认主题在每一个broker队列数量
      */
     private String createTopicKey = MixAll.AUTO_CREATE_TOPIC_KEY_TOPIC;
 
@@ -87,21 +87,19 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
     private int sendMsgTimeout = 3000;
 
     /**
-     * Compress message body threshold, namely, message body larger than 4k will be compressed on default.
+     *
+     * 消息体阈值，超过该值则启用压缩，默认4kb
      */
     private int compressMsgBodyOverHowmuch = 1024 * 4;
 
     /**
-     * Maximum number of retry to perform internally before claiming sending failure in synchronous mode. </p>
-     *
-     * This may potentially cause message duplication which is up to application developers to resolve.
+     * 同步方式发送消息重试次数，默认2次，最大次数为 发送一次 + 重试两次
      */
     private int retryTimesWhenSendFailed = 2;
 
+
     /**
-     * Maximum number of retry to perform internally before claiming sending failure in asynchronous mode. </p>
-     *
-     * This may potentially cause message duplication which is up to application developers to resolve.
+     * 异步方式发送消息重试次数
      */
     private int retryTimesWhenSendAsyncFailed = 2;
 
@@ -111,7 +109,7 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
     private boolean retryAnotherBrokerWhenNotStoreOK = false;
 
     /**
-     * Maximum allowed message size in bytes.
+     * 允许最大消息长度，最大4MB，超过则报错
      */
     private int maxMessageSize = 1024 * 1024 * 4; // 4M
 

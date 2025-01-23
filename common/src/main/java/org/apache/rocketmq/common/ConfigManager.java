@@ -26,6 +26,14 @@ public abstract class ConfigManager {
 
     public abstract String encode();
 
+    /**
+     * 模板方法，
+     * 1.获取配置文件路径
+     * 2.解析配置文件为json
+     * 3.对配置文件进行解析（解码 ）
+     *
+     * @return
+     */
     public boolean load() {
         String fileName = null;
         try {

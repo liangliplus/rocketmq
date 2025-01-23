@@ -18,21 +18,51 @@ package org.apache.rocketmq.store;
 
 import java.util.Map;
 
+/**
+ * topic,queueId,consumeQueueOffset,size,commitLogOffset,tagsCode 构建consumeQueue 文件
+ * （consumeQueueOffset偏移量是非常重要的属性， 这样在构建ConsumeQueue 的时候才知道从那个位置开始写）
+ * keys,commitLogOffset，storeTimestamp  构建indexFile
+ *
+ *
+ */
 public class DispatchRequest {
     private final String topic;
     private final int queueId;
+    /**
+     * 消息物理偏移量
+     */
     private final long commitLogOffset;
+    /**
+     * 消息长度
+     */
     private int msgSize;
     private final long tagsCode;
     private final long storeTimestamp;
+    /**
+     * 消息队列的偏移量
+     */
     private final long consumeQueueOffset;
+    /**
+     * 消息索引的key，多个索引key 用空格隔开， 例如 key1 key2
+     */
     private final String keys;
+    /**
+     * 是否成功解析到完整消息
+     */
     private final boolean success;
     private final String uniqKey;
-
+    /**
+     * 消息系统标识 (例如标记是否为事务消息)
+     */
     private final int sysFlag;
+    /**
+     * 消息预处理事务偏移量
+     */
     private final long preparedTransactionOffset;
     private final Map<String, String> propertiesMap;
+    /**
+     * 位图
+     */
     private byte[] bitMap;
 
     private int bufferSize = -1;//the buffer size maybe larger than the msg size if the message is wrapped by something

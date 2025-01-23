@@ -126,7 +126,7 @@ public class BrokerOuterAPI {
         final List<RegisterBrokerResult> registerBrokerResultList = Lists.newArrayList();
         List<String> nameServerAddressList = this.remotingClient.getNameServerAddressList();
         if (nameServerAddressList != null && nameServerAddressList.size() > 0) {
-
+            //brokername 和 集群名称以及broker地址等信息放在请求头中了（还包含一些扩展信息，例如是否压缩）
             final RegisterBrokerRequestHeader requestHeader = new RegisterBrokerRequestHeader();
             requestHeader.setBrokerAddr(brokerAddr);
             requestHeader.setBrokerId(brokerId);
@@ -135,6 +135,7 @@ public class BrokerOuterAPI {
             requestHeader.setHaServerAddr(haServerAddr);
             requestHeader.setCompressed(compressed);
 
+            //broker注册响应体中包含所有topic 信息（例如读写分别几个队列）
             RegisterBrokerBody requestBody = new RegisterBrokerBody();
             requestBody.setTopicConfigSerializeWrapper(topicConfigWrapper);
             requestBody.setFilterServerList(filterServerList);
@@ -171,6 +172,24 @@ public class BrokerOuterAPI {
         return registerBrokerResultList;
     }
 
+    /**
+     * RegisterBrokerRequestHeader 包含brokerid，broker名称和地址 数据来源在brokerConfig 中有集群名称，broker名称
+     * Broker的topic 默认存储在 ROCKET_HOME/store/config/topics.json 中
+     * requestBody 主要就是topicConfigwrapper 主题配置，数据来源在TopicConfigManager中的topicConfigTable 属性
+     * RocketMQ 内部会包含一些默认TOPIC， 例如SELF_TEST_TOPIC，DEFAULT_TOPIC 在{@link  MixAll}
+     * @param namesrvAddr
+     * @param oneway
+     * @param timeoutMills
+     * @param requestHeader
+     * @param body
+     * @return
+     * @throws RemotingCommandException
+     * @throws MQBrokerException
+     * @throws RemotingConnectException
+     * @throws RemotingSendRequestException
+     * @throws RemotingTimeoutException
+     * @throws InterruptedException
+     */
     private RegisterBrokerResult registerBroker(
         final String namesrvAddr,
         final boolean oneway,

@@ -80,12 +80,12 @@ public class RemotingCommand {
      */
     private int opaque = requestId.getAndIncrement();
     /**
-     * 区分是普通RPC还是onewayRPC的标志
+     * 区分是普通RPC还是oneway RPC的标志
      */
     private int flag = 0;
     private String remark;
     /**
-     * 请求活响应自定义扩展信息
+     * 请求或响应自定义扩展信息
      */
     private HashMap<String, String> extFields;
     private transient CommandCustomHeader customHeader;
@@ -220,9 +220,14 @@ public class RemotingCommand {
         return true;
     }
 
+    /**
+     * 对于json的序列化格式，result[1],result[2],result[3] 没有意义。
+     * @param source
+     * @param type
+     * @return
+     */
     public static byte[] markProtocolType(int source, SerializeType type) {
         byte[] result = new byte[4];
-
         result[0] = type.getCode();
         result[1] = (byte) ((source >> 16) & 0xFF);
         result[2] = (byte) ((source >> 8) & 0xFF);
@@ -243,6 +248,12 @@ public class RemotingCommand {
         this.customHeader = customHeader;
     }
 
+    /**
+     * 解码分为 反射获取类所有字段 ，判断字段类型，把字符串解析为对应类型
+     * @param classHeader
+     * @return
+     * @throws RemotingCommandException
+     */
     public CommandCustomHeader decodeCommandCustomHeader(
         Class<? extends CommandCustomHeader> classHeader) throws RemotingCommandException {
         CommandCustomHeader objectHeader;
@@ -303,6 +314,11 @@ public class RemotingCommand {
         return objectHeader;
     }
 
+    /**
+     * 可以学习下框架反射处理，因为根据class 获取所有字段方法比较损耗性能，所以通过一个map 缓存起来
+     * @param classHeader
+     * @return
+     */
     private Field[] getClazzFields(Class<? extends CommandCustomHeader> classHeader) {
         Field[] field = CLASS_HASH_MAP.get(classHeader);
 
@@ -371,6 +387,13 @@ public class RemotingCommand {
         return result;
     }
 
+    /**
+     * 默认采用json 序列化，
+     * 1.首先把customHeader 的数据保存到extField map中
+     * 2.然后对当前类进行序列化（由于customHeader 和 body 标记了transient 不会被序列化）
+     * 3.序列化的结果只会包含头信息
+     * @return
+     */
     private byte[] headerEncode() {
         this.makeCustomHeaderToNet();
         if (SerializeType.ROCKETMQ == serializeTypeCurrentRPC) {
@@ -412,12 +435,19 @@ public class RemotingCommand {
         return encodeHeader(this.body != null ? this.body.length : 0);
     }
 
+    /**
+     * 请求头编码
+     * 总长度为 请求头长度 4个字节 + 请求头数据长度 + 请求体数据长度
+     * @param bodyLength
+     * @return
+     */
     public ByteBuffer encodeHeader(final int bodyLength) {
         // 1> header length size
         int length = 4;
 
         // 2> header data length
         byte[] headerData;
+
         headerData = this.headerEncode();
 
         length += headerData.length;

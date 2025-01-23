@@ -22,6 +22,21 @@ import org.apache.rocketmq.common.constant.LoggerName;
 import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.logging.InternalLoggerFactory;
 
+/**
+ * ServiceThread 就是一个线程包装类，调用start 方法就会启动一个线程
+ * 因为该类实现runnable 方法，所以就会调用到run 方法
+ * 1.run 方法定义勒线程启停逻辑
+ * 2.shutdown 定义勒如何停止线程
+ *
+ * 通过一个AtomicBoolean started 来标记线程是否已经启动
+ * stopped 变量标记是否停止
+ *
+ * 对于子类只需要重新run 方法，然后判断stop 不为true 就loop 即可。
+ * 避免线程空轮询，提供勒一个waitForRunning 让线程阻塞等待固定间隔（等待实现就是调用Countdownlatch的await方法 ）
+ * 等待期间也是可以唤醒的，提供勒wakeup 方法 （就是调用CountDownLatch的countDown）
+ *
+ *
+ */
 public abstract class ServiceThread implements Runnable {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.COMMON_LOGGER_NAME);
 

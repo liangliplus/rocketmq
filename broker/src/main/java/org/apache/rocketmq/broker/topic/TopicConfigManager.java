@@ -156,6 +156,16 @@ public class TopicConfigManager extends ConfigManager {
         return this.topicConfigTable.get(topic);
     }
 
+    /**
+     * 取消自动创建topic 实现是如果 isAutoCreateTopicEnable 关闭，
+     * 则设置默认 TBW102 为可读和可写权限，没有可以执行（创建权限） 不会自动创建topic
+     * @param topic
+     * @param defaultTopic
+     * @param remoteAddress
+     * @param clientDefaultTopicQueueNums
+     * @param topicSysFlag
+     * @return
+     */
     public TopicConfig createTopicInSendMessageMethod(final String topic, final String defaultTopic,
         final String remoteAddress, final int clientDefaultTopicQueueNums, final int topicSysFlag) {
         TopicConfig topicConfig = null;
@@ -224,6 +234,7 @@ public class TopicConfigManager extends ConfigManager {
         }
 
         if (createNew) {
+            //向namesrv 注册topic，所以如果让topic 创建topic，对于第一次发送消息会延迟会增高
             this.brokerController.registerBrokerAll(false, true, true);
         }
 

@@ -44,8 +44,17 @@ public class MQClientManager {
         return getOrCreateMQClientInstance(clientConfig, null);
     }
 
+    /**
+     * rocketmq 的producer 和 consumer 都是通过该类来获取一个MQClientInstance 实例的。
+     * 默认 生产者和消费者使用同一个对象
+     * @param clientConfig
+     * @param rpcHook
+     * @return
+     */
     public MQClientInstance getOrCreateMQClientInstance(final ClientConfig clientConfig, RPCHook rpcHook) {
+        //clientId 为host+进程id ，这样可以很好避免一台服务器启动多个程序
         String clientId = clientConfig.buildMQClientId();
+
         MQClientInstance instance = this.factoryTable.get(clientId);
         if (null == instance) {
             instance =

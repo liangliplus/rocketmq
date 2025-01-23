@@ -438,6 +438,11 @@ public class MessageDecoder {
         return map;
     }
 
+    /**
+     * 编码
+     * @param message
+     * @return
+     */
     public static byte[] encodeMessage(Message message) {
         //only need flag, body, properties
         byte[] body = message.getBody();
@@ -518,6 +523,7 @@ public class MessageDecoder {
             encodedMessages.add(tmp);
             allSize += tmp.length;
         }
+        //将每条消息编码后聚合为一个byte[] 数组即可，消息发送的时候按照这样方式进行解码即可
         byte[] allBytes = new byte[allSize];
         int pos = 0;
         for (byte[] bytes : encodedMessages) {

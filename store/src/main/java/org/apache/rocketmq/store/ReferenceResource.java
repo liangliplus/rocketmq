@@ -24,6 +24,10 @@ public abstract class ReferenceResource {
     protected volatile boolean cleanupOver = false;
     private volatile long firstShutdownTimestamp = 0;
 
+    /**
+     * 这里有一个同步锁
+     * @return
+     */
     public synchronized boolean hold() {
         if (this.isAvailable()) {
             if (this.refCount.getAndIncrement() > 0) {
@@ -42,8 +46,11 @@ public abstract class ReferenceResource {
 
     public void shutdown(final long intervalForcibly) {
         if (this.available) {
+            //设置为不可用
             this.available = false;
+            //记录初次关闭时间戳
             this.firstShutdownTimestamp = System.currentTimeMillis();
+            //调用release 释放资源
             this.release();
         } else if (this.getRefCount() > 0) {
             if ((System.currentTimeMillis() - this.firstShutdownTimestamp) >= intervalForcibly) {
@@ -55,11 +62,12 @@ public abstract class ReferenceResource {
 
     public void release() {
         long value = this.refCount.decrementAndGet();
+        //只有在引用次数小于1 情况才会释放
         if (value > 0)
             return;
 
         synchronized (this) {
-
+            //cleanupOver 为true，表示MappedByteBuffer 资源释放成功了
             this.cleanupOver = this.cleanup(value);
         }
     }

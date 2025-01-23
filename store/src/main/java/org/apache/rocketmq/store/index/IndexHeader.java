@@ -41,6 +41,10 @@ public class IndexHeader {
         this.byteBuffer = byteBuffer;
     }
 
+    /**
+     * 从index文件头中加载文件开始和结束时间戳， 以及该文件记录消息开始偏移和结束偏移量
+     * hash槽数量，index条目数量
+     */
     public void load() {
         this.beginTimestamp.set(byteBuffer.getLong(beginTimestampIndex));
         this.endTimestamp.set(byteBuffer.getLong(endTimestampIndex));
