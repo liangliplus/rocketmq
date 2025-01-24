@@ -16,6 +16,8 @@
  */
 package org.apache.rocketmq.store;
 
+import java.util.function.Supplier;
+
 /**
  * When write a message to the commit log, returns results
  */
@@ -28,6 +30,7 @@ public class AppendMessageResult {
     private int wroteBytes;
     // Message ID
     private String msgId;
+    private Supplier<String> msgIdSupplier;
     // Message storage timestamp
     private long storeTimestamp;
     /**
@@ -56,6 +59,36 @@ public class AppendMessageResult {
         this.storeTimestamp = storeTimestamp;
         this.logicsOffset = logicsOffset;
         this.pagecacheRT = pagecacheRT;
+    }
+
+    public AppendMessageResult(AppendMessageStatus status, long wroteOffset, int wroteBytes, long storeTimestamp) {
+        this.status = status;
+        this.wroteOffset = wroteOffset;
+        this.wroteBytes = wroteBytes;
+        this.storeTimestamp = storeTimestamp;
+    }
+
+    public AppendMessageResult(AppendMessageStatus status, long wroteOffset, int wroteBytes, Supplier<String> msgIdSupplier,
+            long storeTimestamp, long logicsOffset, long pagecacheRT) {
+        this.status = status;
+        this.wroteOffset = wroteOffset;
+        this.wroteBytes = wroteBytes;
+        this.msgIdSupplier = msgIdSupplier;
+        this.storeTimestamp = storeTimestamp;
+        this.logicsOffset = logicsOffset;
+        this.pagecacheRT = pagecacheRT;
+    }
+
+    public AppendMessageResult(AppendMessageStatus status, long wroteOffset, int wroteBytes, Supplier<String> msgIdSupplier,
+            long storeTimestamp, long logicsOffset, long pagecacheRT, int msgNum) {
+        this.status = status;
+        this.wroteOffset = wroteOffset;
+        this.wroteBytes = wroteBytes;
+        this.msgIdSupplier = msgIdSupplier;
+        this.storeTimestamp = storeTimestamp;
+        this.logicsOffset = logicsOffset;
+        this.pagecacheRT = pagecacheRT;
+        this.msgNum = msgNum;
     }
 
     public long getPagecacheRT() {
@@ -95,6 +128,9 @@ public class AppendMessageResult {
     }
 
     public String getMsgId() {
+        if (msgId == null && msgIdSupplier != null) {
+            msgId = msgIdSupplier.get();
+        }
         return msgId;
     }
 

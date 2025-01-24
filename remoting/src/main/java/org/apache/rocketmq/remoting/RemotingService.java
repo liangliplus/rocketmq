@@ -30,4 +30,9 @@ public interface RemotingService {
      * @param rpcHook
      */
     void registerRPCHook(RPCHook rpcHook);
+
+    /**
+     * Remove all rpc hooks.
+     */
+    void clearRPCHook();
 }
