@@ -61,6 +61,9 @@ import org.apache.rocketmq.store.index.QueryOffsetResult;
 import org.apache.rocketmq.store.schedule.ScheduleMessageService;
 import org.apache.rocketmq.store.stats.BrokerStatsManager;
 
+/**
+ * 该类包含 保存消息，分发消息， 清理消息入口
+ */
 public class DefaultMessageStore implements MessageStore {
     /**
      * store.log 日志需要注意就是写commitLog ,consumeQueue,index 是否有警告或者异常日志，然后分析具体原因
@@ -414,6 +417,7 @@ public class DefaultMessageStore implements MessageStore {
             return new PutMessageResult(PutMessageStatus.SERVICE_NOT_AVAILABLE, null);
         }
 
+        //先判断是否可以写消息（当commitLog 目录磁盘达到阈值会阻塞写入新消息）
         if (!this.runningFlags.isWriteable()) {
             long value = this.printTimes.getAndIncrement();
             if ((value % 50000) == 0) {
@@ -1269,8 +1273,13 @@ public class DefaultMessageStore implements MessageStore {
         log.info(fileName + (result ? " create OK" : " already exists"));
     }
 
+    /**
+     * 定时清理过期文件入口 {@link  DefaultMessageStore#cleanFilesPeriodically()}
+     * 一共3个定时周期性任务
+     *
+     */
     private void addScheduleTask() {
-
+        //每隔10s 执行一次，检测是否需要清除过期文件
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
             @Override
             public void run() {
@@ -1315,7 +1324,9 @@ public class DefaultMessageStore implements MessageStore {
     }
 
     private void cleanFilesPeriodically() {
+        //清理commitLog
         this.cleanCommitLogService.run();
+        //清理consumeQueue
         this.cleanConsumeQueueService.run();
     }
 
@@ -1590,9 +1601,16 @@ public class DefaultMessageStore implements MessageStore {
     class CleanCommitLogService {
 
         private final static int MAX_MANUAL_DELETE_FILE_TIMES = 20;
+        /**
+         * 系统参数设置
+         */
         private final double diskSpaceWarningLevelRatio =
             Double.parseDouble(System.getProperty("rocketmq.broker.diskSpaceWarningLevelRatio", "0.90"));
 
+        /**
+         * 通过-Drocketmq.broker.diskSpaceCleanForciblyRatio 系统参数设置，默认0.85
+         * 如果磁盘分区使用超过该阈值，建立立即执行过期文件删除，但不会拒绝写入新消息
+         */
         private final double diskSpaceCleanForciblyRatio =
             Double.parseDouble(System.getProperty("rocketmq.broker.diskSpaceCleanForciblyRatio", "0.85"));
         private long lastRedeleteTimestamp = 0;
@@ -1608,6 +1626,7 @@ public class DefaultMessageStore implements MessageStore {
 
         public void run() {
             try {
+                //删除文件核心逻辑
                 this.deleteExpiredFiles();
 
                 this.redeleteHangedFile();
@@ -1616,17 +1635,31 @@ public class DefaultMessageStore implements MessageStore {
             }
         }
 
+        /**
+         * timeup || spacefull || manualDelete
+         * rocketmq 满足任意一种情况将继续执行删除文件的操作
+         * 1. timeup 指定删除时间点，默认为凌晨4点
+         * 2. spacefull 检查磁盘空间是否充足，如果磁盘空间不足，则返回true，表示应该触发过期文件删除操作
+         * 3. manualDelete 预留手工促发机制，可以通过调用 {@link  CleanCommitLogService#excuteDeleteFilesManualy} 触发，目前暂未封装手工触发删除文件命令
+         * 可以执行删除，那有没有过期的文件，还需要进一步遍历磁盘目录才知道
+         *
+         * 三个变量可以应对不同场景，例如磁盘空间都快不足，就不要等到 timeup 才清除过期文件，可以在本次执行清除过期文件
+         */
         private void deleteExpiredFiles() {
             int deleteCount = 0;
+            //文件保留时间，最后更新时间超过该时间，可以删除（单位小时）
             long fileReservedTime = DefaultMessageStore.this.getMessageStoreConfig().getFileReservedTime();
+            //删除物理文件间隔时间，在一次清楚过程，可能删除不止一个文件，指定两次删除文件的间隔
             int deletePhysicFilesInterval = DefaultMessageStore.this.getMessageStoreConfig().getDeleteCommitLogFilesInterval();
+            // 在清除过期文件时，如果该文件被其它线程占用（引用次数大于0，比如读取消息，例如管理后台查询历史消息）,此时会阻止此次删除任务，同时在第一次试图删除该文件记录时间戳
+            // 表示第一次拒绝删除之后能保留文件最大时间，在此时间，还可以拒绝，超过该时间后，将引用次数设置为负数，文件强制删除
             int destroyMapedFileIntervalForcibly = DefaultMessageStore.this.getMessageStoreConfig().getDestroyMapedFileIntervalForcibly();
 
             boolean timeup = this.isTimeToDelete();
             boolean spacefull = this.isSpaceToDelete();
             boolean manualDelete = this.manualDeleteFileSeveralTimes > 0;
-
-            if (timeup || spacefull || manualDelete) {
+            //三个变量一个为true 都会执行删除
+            if (timeup || spacefull || manualDelete) { //if为true 执行删除逻辑
 
                 if (manualDelete)
                     this.manualDeleteFileSeveralTimes--;
@@ -1642,6 +1675,7 @@ public class DefaultMessageStore implements MessageStore {
 
                 fileReservedTime *= 60 * 60 * 1000;
 
+                //删除过期文件
                 deleteCount = DefaultMessageStore.this.commitLog.deleteExpiredFile(fileReservedTime, deletePhysicFilesInterval,
                     destroyMapedFileIntervalForcibly, cleanAtOnce);
                 if (deleteCount > 0) {
@@ -1677,36 +1711,56 @@ public class DefaultMessageStore implements MessageStore {
             return false;
         }
 
+        /**
+         * 磁盘是否充足实现逻辑
+         * 如果commitLog 磁盘分区
+         * 如果磁盘分区使用率 大于 90% （diskSpaceWarningLevelRatio） 则设置不可写标识，其它线程不能写commitLog，并需要立即执行清理过期文件
+         * 如果磁盘分区使用率 大于 85% （diskSpaceCleanForciblyRatio） 其它线程还可以写消息commitLog，并需要立即执行清理过期文件
+         *
+         * 如果当前磁盘使用率 低于 DiskMaxUsedSpaceRatio，则返回false
+         * @return
+         */
         private boolean isSpaceToDelete() {
+            //diskMaxUsedSpaceRatio 表示文件所在磁盘分区最大使用量，超过该值需要记录清除过期文件
             double ratio = DefaultMessageStore.this.getMessageStoreConfig().getDiskMaxUsedSpaceRatio() / 100.0;
 
+            //是否需要立即执行清除过期文件操作，true 表示立即清除过期文件
             cleanImmediately = false;
 
             {
                 String storePathPhysic = DefaultMessageStore.this.getMessageStoreConfig().getStorePathCommitLog();
+                /**
+                 * 当前commitLog 所在的磁盘分区的磁盘使用率，通过{@link File#getTotalSpace()} 获取总容量
+                 * {@link  File#getFreeSpace()} 获取文件所在分区的剩余容量，使用率 = 使用空间 / 总空间
+                 */
                 double physicRatio = UtilAll.getDiskPartitionSpaceUsedPercent(storePathPhysic);
+                //diskSpaceWarningLevelRatio 默认0.9 如果磁盘使用率超过该阈值，将设置磁盘不可以写，此时会拒绝写入新消息
                 if (physicRatio > diskSpaceWarningLevelRatio) {
+                    //设置一个系统标记
                     boolean diskok = DefaultMessageStore.this.runningFlags.getAndMakeDiskFull();
                     if (diskok) {
                         DefaultMessageStore.log.error("physic disk maybe full soon " + physicRatio + ", so mark disk full");
                     }
 
                     cleanImmediately = true;
-                } else if (physicRatio > diskSpaceCleanForciblyRatio) {
+                }
+                else if (physicRatio > diskSpaceCleanForciblyRatio) {
                     cleanImmediately = true;
-                } else {
+                }
+                else {
+                    //如果磁盘使用率小于diskSpaceCleanForciblyRatio 和 diskSpaceWarningLevelRatio，则恢复磁盘可写入
                     boolean diskok = DefaultMessageStore.this.runningFlags.getAndMakeDiskOK();
                     if (!diskok) {
                         DefaultMessageStore.log.info("physic disk space OK " + physicRatio + ", so mark disk ok");
                     }
                 }
 
-                if (physicRatio < 0 || physicRatio > ratio) {
+                if (physicRatio < 0 || physicRatio > ratio) { //如果实际使用率 大于 配置阈值，则表示磁盘空间满了
                     DefaultMessageStore.log.info("physic disk maybe full soon, so reclaim space, " + physicRatio);
                     return true;
                 }
             }
-
+            //后续对consumeQueue 执行相同判断
             {
                 String storePathLogics = StorePathConfigHelper
                     .getStorePathConsumeQueue(DefaultMessageStore.this.getMessageStoreConfig().getStorePathRootDir());

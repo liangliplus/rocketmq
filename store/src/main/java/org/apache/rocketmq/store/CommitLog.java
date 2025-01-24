@@ -733,9 +733,9 @@ public class CommitLog {
         storeStatsService.getSinglePutMessageTopicTimesTotal(msg.getTopic()).incrementAndGet();
         storeStatsService.getSinglePutMessageTopicSizeTotal(topic).addAndGet(result.getWroteBytes());
 
-        //处理刷盘(TODO)
+        //处理刷盘(TODO transientStorePoolEnable 分析，同步及普通异步刷盘分析完成了 )
         handleDiskFlush(result, putMessageResult, msg);
-        //处理主从同步(TODO)
+        //处理主从同步 4.7.0 对同步复制做了优化，提供同步复制性能 (  TODO)
         handleHA(result, putMessageResult, msg);
 
         return putMessageResult;

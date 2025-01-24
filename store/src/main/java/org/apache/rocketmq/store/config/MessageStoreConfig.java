@@ -67,7 +67,9 @@ public class MessageStoreConfig {
     private boolean flushCommitLogTimed = false;
     // ConsumeQueue flush interval
     private int flushIntervalConsumeQueue = 1000;
-    // Resource reclaim interval
+    /**
+     * 配置清楚过期文件定时任务执行频率 默认10s 一次
+     */
     private int cleanResourceInterval = 10000;
     // CommitLog removal interval
     private int deleteCommitLogFilesInterval = 100;
@@ -81,6 +83,7 @@ public class MessageStoreConfig {
     private int diskMaxUsedSpaceRatio = 75;
     // The number of hours to keep a log file before deleting it (in hours)
     /**
+     * 默认每个文件的过期时间是 72h
      * 在删除日志文件之前保留日志文件的小时数（小时为单位），commitLog 时间大于72小时就会被清理掉。
      * (默认只保存3天，线上尽量保存时间长一点，对于消费时间长、消息堆积、故障恢复等场景非常关键)
      * 什么时候清理见 {@link  this#deleteWhen}
@@ -130,6 +133,12 @@ public class MessageStoreConfig {
     @ImportantField
     private String haMasterAddress = null;
     private int haSlaveFallbehindMax = 1024 * 1024 * 256;
+    /**
+     * 代表消息复制的方式，
+     * ASYNC_MASTER 为异步复制
+     * SYNC_MASTER 为同步复制
+     *
+     */
     @ImportantField
     private BrokerRole brokerRole = BrokerRole.ASYNC_MASTER;
     @ImportantField
