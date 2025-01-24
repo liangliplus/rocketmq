@@ -17,6 +17,8 @@
 package org.apache.rocketmq.example.quickstart;
 
 import java.util.List;
+
+import org.apache.rocketmq.client.consumer.DefaultMQPullConsumer;
 import org.apache.rocketmq.client.consumer.DefaultMQPushConsumer;
 import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyContext;
 import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyStatus;
@@ -34,8 +36,10 @@ public class Consumer {
 
         /*
          * Instantiate with specified consumer group name.
+         * 用这个负载均衡算法会更好 AllocateMessageQueueAveragelyByCircle
          */
         DefaultMQPushConsumer consumer = new DefaultMQPushConsumer("please_rename_unique_group_name_4");
+//        DefaultMQPullConsumer consumer2
 
         /*
          * Specify name server addresses.
@@ -57,7 +61,7 @@ public class Consumer {
         /*
          * Subscribe one more more topics to consume.
          */
-        consumer.subscribe("TopicTest", "*");
+        consumer.subscribe("TopicTest3", "*");
 
         /*
          *  Register callback to execute on arrival of messages fetched from brokers.

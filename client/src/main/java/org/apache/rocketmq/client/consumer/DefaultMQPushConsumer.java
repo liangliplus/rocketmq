@@ -139,17 +139,18 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
     private AllocateMessageQueueStrategy allocateMessageQueueStrategy;
 
     /**
-     * Subscription relationship
+     * 订阅信息(包含topic 以及子表达式，可以是tag 或者 sql 92标准 )
+     *
      */
     private Map<String /* topic */, String /* sub expression */> subscription = new HashMap<String, String>();
 
     /**
-     * Message listener
+     * 消息业务监听器
      */
     private MessageListener messageListener;
 
     /**
-     * Offset Storage
+     * 消息消费进度存储器
      */
     private OffsetStore offsetStore;
 
@@ -163,19 +164,17 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
      */
     private int consumeThreadMax = 20;
 
-    /**
-     * Threshold for dynamic adjustment of the number of thread pool
-     */
+
     private long adjustThreadPoolNumsThreshold = 100000;
 
     /**
-     * Concurrently max span offset.it has no effect on sequential consumption
+     * 并发消息消费时处理队列最大跨度，默认2000，
+     * 表示如果消息处理队列中偏移量最大的消息与偏移量最小的消息的跨度超过2000，则延迟50ms后再拉取消息
      */
     private int consumeConcurrentlyMaxSpan = 2000;
 
     /**
-     * Flow control threshold on queue level, each message queue will cache at most 1000 messages by default,
-     * Consider the {@code pullBatchSize}, the instantaneous value may exceed the limit
+     * 默认1000，表示每1000次流控后打印流控日志。
      */
     private int pullThresholdForQueue = 1000;
 
@@ -211,12 +210,14 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
     private int pullThresholdSizeForTopic = -1;
 
     /**
-     * Message pull Interval
+     * 推模式下拉取任务的间隔时间，默
+     * 认一次拉取任务完成后继续拉取
      */
     private long pullInterval = 0;
 
     /**
-     * Batch consumption size
+     * 消息并发消费时一次消费消息的条数，通俗点说，就是每次传入
+     * MessageListener#consumeMessage中的消息条数
      */
     private int consumeMessageBatchMaxSize = 1;
 
@@ -226,7 +227,7 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
     private int pullBatchSize = 32;
 
     /**
-     * Whether update subscription relationship when every pull
+     * 是否每次拉取消息都更新订阅信息，默认为false
      */
     private boolean postSubscriptionWhenPull = false;
 
@@ -245,12 +246,12 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
     private int maxReconsumeTimes = -1;
 
     /**
-     * Suspending pulling time for cases requiring slow pulling like flow-control scenario.
+     * 延迟将该队列的消息提交到消费者线程的等待时间，默认延迟1s
      */
     private long suspendCurrentQueueTimeMillis = 1000;
 
     /**
-     * Maximum amount of time in minutes a message may block the consuming thread.
+     * 消息消费超时时间.默认为15分钟。
      */
     private long consumeTimeout = 15;
 

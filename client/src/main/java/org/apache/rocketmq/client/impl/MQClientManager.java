@@ -52,7 +52,7 @@ public class MQClientManager {
      * @return
      */
     public MQClientInstance getOrCreateMQClientInstance(final ClientConfig clientConfig, RPCHook rpcHook) {
-        //clientId 为host+进程id ，这样可以很好避免一台服务器启动多个程序
+        //clientId 为host+进程id ，这样可以很好避免一台服务器启动多个程序(如果一个应用程序即有生产者又有消费者，则公用一个MQClientInstance 对象)
         String clientId = clientConfig.buildMQClientId();
 
         MQClientInstance instance = this.factoryTable.get(clientId);

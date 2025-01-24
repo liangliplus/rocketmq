@@ -247,9 +247,9 @@ public class MQClientInstance {
                     this.mQClientAPIImpl.start();
                     // Start various schedule tasks
                     this.startScheduledTask();
-                    // Start pull service
+                    // 启动拉取数据请求
                     this.pullMessageService.start();
-                    // Start rebalance service
+                    // 启动消息队列复负载均衡 与 重平衡
                     this.rebalanceService.start();
                     // Start push service
                     this.defaultMQProducer.getDefaultMQProducerImpl().start(false);
@@ -992,7 +992,9 @@ public class MQClientInstance {
     }
 
     public void doRebalance() {
+        //获取所有消费组与消费者关系
         for (Map.Entry<String, MQConsumerInner> entry : this.consumerTable.entrySet()) {
+            //对应消费者消息
             MQConsumerInner impl = entry.getValue();
             if (impl != null) {
                 try {

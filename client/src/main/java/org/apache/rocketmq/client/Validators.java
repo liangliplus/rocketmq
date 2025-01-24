@@ -59,6 +59,7 @@ public class Validators {
             throw new MQClientException("the specified group is longer than group max length 255.", null);
         }
 
+        //只能是%|数字+字母-_ 等
         if (!regularExpressionMatcher(group, PATTERN)) {
             throw new MQClientException(String.format(
                 "the specified group[%s] contains illegal characters, allowing only %s", group,
