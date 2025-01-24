@@ -294,6 +294,8 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
             }
             putMessageResult = this.brokerController.getTransactionalMessageService().asyncPrepareMessage(msgInner);
         } else {
+            //注意实现类对asyncPutMessage 方法进行勒重写（在broker端异步编程，使同步复制性能接近异步辅助，大大提供消息的复制性能）
+            //所以使用4.7 以上的好处
             putMessageResult = this.brokerController.getMessageStore().asyncPutMessage(msgInner);
         }
         return handlePutMessageResultFuture(putMessageResult, response, request, msgInner, responseHeader, mqtraceContext, ctx, queueIdInt);
